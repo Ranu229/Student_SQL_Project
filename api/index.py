@@ -2,17 +2,32 @@ import os
 import sqlite3
 from flask import Flask, render_template, request, jsonify
 
-# Get current directory of index.py (inside /api)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
 
-# SQLite path: On Vercel, root is read-only, so use /tmp
+# WSGI Middleware to restore original request path on Vercel
+class VercelPathFixer:
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        # Vercel passes the original URL path in these headers during rewrites
+        original_path = (
+            environ.get("HTTP_X_MATCHED_PATH")
+            or environ.get("HTTP_X_FORWARDED_PATH")
+            or environ.get("HTTP_X_REWRITE_URL")
+        )
+        if original_path:
+            environ["PATH_INFO"] = original_path.split("?")[0]
+        return self.wsgi_app(environ, start_response)
+
+app.wsgi_app = VercelPathFixer(app.wsgi_app)
+
 if os.environ.get("VERCEL"):
     DB_NAME = "/tmp/students.db"
 else:
-    # Local fallback
     ROOT_DIR = os.path.dirname(BASE_DIR)
     DB_NAME = os.path.join(ROOT_DIR, "students.db")
 
@@ -24,7 +39,6 @@ def get_db_connection():
 
 
 def init_db():
-    """Initializes the database and table, and seeds with sample records if empty."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -38,7 +52,6 @@ def init_db():
         """)
         conn.commit()
 
-        # Seed sample data if table is brand new/empty
         cursor.execute("SELECT COUNT(*) FROM students;")
         count = cursor.fetchone()[0]
         if count == 0:
@@ -57,27 +70,34 @@ def init_db():
             conn.commit()
 
 
-# Initialize table on startup
 init_db()
 
 
 # -------------------------------------------------------------
-# 1. FRONTEND ROUTE (Matches /, /api, /api/index, /index)
+# 1. FRONTEND ROUTE
 # -------------------------------------------------------------
 @app.route("/")
-@app.route("/api")
 @app.route("/api/index")
-@app.route("/index")
 def index():
     init_db()
     return render_template("index.html")
+
+
+@app.route("/api/debug-env")
+def debug_env():
+    """Helps verify environment headers in Vercel."""
+    return jsonify({
+        "PATH_INFO": request.environ.get("PATH_INFO"),
+        "HTTP_X_MATCHED_PATH": request.environ.get("HTTP_X_MATCHED_PATH"),
+        "HTTP_X_FORWARDED_PATH": request.environ.get("HTTP_X_FORWARDED_PATH"),
+        "all_headers": {k: str(v) for k, v in request.environ.items() if k.startswith("HTTP_")}
+    })
 
 
 # -------------------------------------------------------------
 # 2. READ (SELECT) API
 # -------------------------------------------------------------
 @app.route("/api/students", methods=["GET"])
-@app.route("/students", methods=["GET"])
 def get_students():
     try:
         init_db()
@@ -95,7 +115,6 @@ def get_students():
 # 3. CREATE (INSERT) API
 # -------------------------------------------------------------
 @app.route("/api/students", methods=["POST"])
-@app.route("/students", methods=["POST"])
 def add_student():
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
@@ -131,7 +150,6 @@ def add_student():
 # 4. UPDATE API
 # -------------------------------------------------------------
 @app.route("/api/students/<int:student_id>", methods=["PUT"])
-@app.route("/students/<int:student_id>", methods=["PUT"])
 def update_student(student_id):
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
@@ -169,7 +187,6 @@ def update_student(student_id):
 # 5. DELETE API
 # -------------------------------------------------------------
 @app.route("/api/students/<int:student_id>", methods=["DELETE"])
-@app.route("/students/<int:student_id>", methods=["DELETE"])
 def delete_student(student_id):
     try:
         init_db()
@@ -188,7 +205,6 @@ def delete_student(student_id):
 # 6. RAW SQL QUERY EXECUTION API
 # -------------------------------------------------------------
 @app.route("/api/execute-sql", methods=["POST"])
-@app.route("/execute-sql", methods=["POST"])
 def execute_sql():
     data = request.get_json() or {}
     query = (data.get("query") or "").strip()
@@ -214,6 +230,5 @@ def execute_sql():
         return jsonify({"success": False, "error": str(e)}), 400
 
 
-# Support local execution if index.py is run directly
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True)
