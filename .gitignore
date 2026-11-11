@@ -1,0 +1,15 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Database files
+*.db
+*.sqlite3
+
+# VS Code user workspace state
+.vscode/*.log
