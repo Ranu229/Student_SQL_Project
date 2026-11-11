@@ -1,11 +1,29 @@
 import os
 import sqlite3
+import urllib.parse
 from flask import Flask, render_template, request, jsonify
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 
 app = Flask(__name__, template_folder=TEMPLATE_DIR)
+
+
+# WSGI Middleware to restore original request path from ?path= query param on Vercel
+class VercelPathFixer:
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        query_string = environ.get("QUERY_STRING", "")
+        params = urllib.parse.parse_qs(query_string)
+        if "path" in params and params["path"]:
+            raw_path = params["path"][0].lstrip("/")
+            environ["PATH_INFO"] = "/" + raw_path
+        return self.wsgi_app(environ, start_response)
+
+
+app.wsgi_app = VercelPathFixer(app.wsgi_app)
 
 if os.environ.get("VERCEL"):
     DB_NAME = "/tmp/students.db"
@@ -55,12 +73,6 @@ def init_db():
 init_db()
 
 
-# Check whatever path comes in
-@app.before_request
-def log_request_info():
-    pass
-
-
 # -------------------------------------------------------------
 # 1. FRONTEND ROUTE
 # -------------------------------------------------------------
@@ -68,9 +80,7 @@ def log_request_info():
 @app.route("/api/index")
 def index():
     init_db()
-    # Embed headers for debugging
-    headers_debug = {k: str(v) for k, v in request.environ.items() if k.startswith("HTTP_") or k in ("PATH_INFO", "REQUEST_URI", "SCRIPT_NAME")}
-    return render_template("index.html", debug_info=str(headers_debug))
+    return render_template("index.html")
 
 
 # -------------------------------------------------------------
