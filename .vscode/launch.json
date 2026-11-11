@@ -2,10 +2,31 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Run Student Database",
+            "name": "Python: Web Dashboard (app.py)",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/student_db.py",
+            "program": "${workspaceFolder}/app.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Run Current Active File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Query Playground",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/my_query_playground.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Run All Queries Demo",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/run_all_queries.py",
             "console": "integratedTerminal"
         }
     ]

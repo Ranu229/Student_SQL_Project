@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Database Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <span class="text-3xl">🎓</span>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Student Database Portal</h1>
+                    <p class="text-xs text-indigo-200">Connected to local SQLite: <code class="bg-indigo-700 px-1.5 py-0.5 rounded">students.db</code></p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="fetchStudents()" class="inline-flex items-center px-3 py-1.5 text-sm bg-indigo-500 hover:bg-indigo-400 rounded-lg transition font-medium">
+                    🔄 Refresh Data
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Stats Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center space-x-4">
+                <div class="p-3 bg-blue-100 text-blue-600 rounded-lg text-2xl">👥</div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500">Total Enrolled</p>
+                    <h3 id="stat-total" class="text-2xl font-bold text-slate-900">0</h3>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center space-x-4">
+                <div class="p-3 bg-emerald-100 text-emerald-600 rounded-lg text-2xl">🎂</div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500">Average Age</p>
+                    <h3 id="stat-avg-age" class="text-2xl font-bold text-slate-900">0</h3>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-center space-x-4">
+                <div class="p-3 bg-purple-100 text-purple-600 rounded-lg text-2xl">🏆</div>
+                <div>
+                    <p class="text-sm font-medium text-slate-500">Active Grades</p>
+                    <h3 id="stat-grades" class="text-2xl font-bold text-slate-900">0</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Toast -->
+        <div id="toast" class="hidden rounded-lg p-4 font-medium transition-all duration-300"></div>
+
+        <!-- 2-Column Grid: Add Student Form & SQL Console -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <!-- Left: Add Student (INSERT) -->
+            <div class="lg:col-span-5 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2 mb-1">
+                    <span>➕</span> Add New Student (INSERT)
+                </h2>
+                <p class="text-xs text-slate-500 mb-5">Insert a new record into SQLite database.</p>
+
+                <form id="add-student-form" onsubmit="handleAddStudent(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Full Name</label>
+                        <input type="text" id="add-name" required placeholder="e.g. Maya Patel"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Age</label>
+                            <input type="number" id="add-age" required min="10" max="100" placeholder="e.g. 21"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Grade</label>
+                            <input type="text" id="add-grade" required placeholder="e.g. A+"
+                                class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Email Address (Must be Unique)</label>
+                        <input type="email" id="add-email" required placeholder="e.g. maya@example.com"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <button type="submit"
+                        class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition shadow-sm">
+                        Submit Record to Database
+                    </button>
+                </form>
+            </div>
+
+            <!-- Right: Live SQL Console -->
+            <div class="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <span>💻</span> Live SQL Query Console
+                        </h2>
+                        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">SQLite3</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-3">Type any custom SQL query and watch it run live against your database.</p>
+
+                    <!-- Preset Query Buttons -->
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <button type="button" onclick="setQuery('SELECT * FROM students WHERE grade = \'A+\';')" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700">Filter Grade A+</button>
+                        <button type="button" onclick="setQuery('SELECT * FROM students WHERE age >= 21;')" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700">Age &ge; 21</button>
+                        <button type="button" onclick="setQuery('SELECT grade, COUNT(*) as total FROM students GROUP BY grade;')" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700">Count by Grade</button>
+                        <button type="button" onclick="setQuery('SELECT * FROM students ORDER BY age DESC;')" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700">Sort by Age</button>
+                    </div>
+
+                    <textarea id="sql-query-input" rows="3"
+                        class="w-full font-mono text-xs p-3 bg-slate-900 text-emerald-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        placeholder="SELECT * FROM students;"></textarea>
+                </div>
+
+                <div class="mt-4 flex items-center justify-between">
+                    <button onclick="handleExecuteSql()"
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm transition">
+                        ▶ Run SQL Query
+                    </button>
+                    <span id="query-status" class="text-xs text-slate-500">Ready</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Database Records Table (READ, UPDATE, DELETE) -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <span>📋</span> Students Table Records (SELECT)
+                    </h2>
+                    <p class="text-xs text-slate-500">Live view of records stored in <code class="bg-slate-100 px-1 py-0.5 rounded text-indigo-600">students.db</code></p>
+                </div>
+
+                <!-- Search Input -->
+                <div class="relative w-full sm:w-64">
+                    <input type="text" id="search-input" oninput="filterStudents()" placeholder="Search name, email, grade..."
+                        class="w-full pl-9 pr-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <span class="absolute left-3 top-2 text-slate-400 text-sm">🔍</span>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-500 uppercase text-xs tracking-wider border-b border-slate-200 font-semibold">
+                            <th class="py-3 px-6">ID</th>
+                            <th class="py-3 px-6">Name</th>
+                            <th class="py-3 px-6">Age</th>
+                            <th class="py-3 px-6">Grade</th>
+                            <th class="py-3 px-6">Email</th>
+                            <th class="py-3 px-6 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-table-body" class="divide-y divide-slate-100 text-sm text-slate-700">
+                        <tr>
+                            <td colspan="6" class="text-center py-8 text-slate-400">Loading database records...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Edit Student Modal (UPDATE) -->
+    <div id="edit-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-900">✏️ Update Student Details</h3>
+                <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+            <form id="edit-form" onsubmit="handleSaveEdit(event)" class="space-y-4">
+                <input type="hidden" id="edit-id">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Full Name</label>
+                    <input type="text" id="edit-name" required
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Age</label>
+                        <input type="number" id="edit-age" required min="10" max="100"
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Grade</label>
+                        <input type="text" id="edit-grade" required
+                            class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Email</label>
+                    <input type="email" id="edit-email" required
+                        class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeEditModal()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Save Changes (UPDATE)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Frontend JavaScript -->
+    <script>
+        let allStudents = [];
+
+        // Show feedback toast
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = isError 
+                ? 'block bg-red-100 border border-red-300 text-red-800 p-4 rounded-lg'
+                : 'block bg-emerald-100 border border-emerald-300 text-emerald-800 p-4 rounded-lg';
+            setTimeout(() => { toast.className = 'hidden'; }, 4000);
+        }
+
+        // Fetch students from the backend
+        async function fetchStudents() {
+            try {
+                const res = await fetch('/api/students');
+                const data = await res.json();
+                if (data.success) {
+                    allStudents = data.students;
+                    renderTable(allStudents);
+                    updateStats(allStudents);
+                } else {
+                    showToast(data.error || 'Failed to fetch students', true);
+                }
+            } catch (err) {
+                showToast('Error connecting to server', true);
+            }
+        }
+
+        // Render table rows
+        function renderTable(students) {
+            const tbody = document.getElementById('student-table-body');
+            if (students.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-slate-400">No student records found in database.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = students.map(s => `
+                <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                    <td class="py-3.5 px-6 font-semibold text-slate-900">${s.id}</td>
+                    <td class="py-3.5 px-6 font-medium text-slate-900">${escapeHtml(s.name)}</td>
+                    <td class="py-3.5 px-6">${s.age}</td>
+                    <td class="py-3.5 px-6">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            ${escapeHtml(s.grade)}
+                        </span>
+                    </td>
+                    <td class="py-3.5 px-6 text-slate-500 font-mono text-xs">${escapeHtml(s.email)}</td>
+                    <td class="py-3.5 px-6 text-right space-x-2">
+                        <button onclick="openEditModal(${s.id})" class="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition font-medium">
+                            ✏️ Edit
+                        </button>
+                        <button onclick="handleDelete(${s.id}, '${escapeHtml(s.name)}')" class="px-2.5 py-1 text-xs bg-red-50 hover:bg-red-100 text-red-600 rounded transition font-medium">
+                            🗑️ Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Update statistics cards
+        function updateStats(students) {
+            document.getElementById('stat-total').textContent = students.length;
+            if (students.length > 0) {
+                const totalAge = students.reduce((acc, curr) => acc + (Number(curr.age) || 0), 0);
+                const avg = (totalAge / students.length).toFixed(1);
+                document.getElementById('stat-avg-age').textContent = `${avg} yrs`;
+
+                const uniqueGrades = new Set(students.map(s => s.grade));
+                document.getElementById('stat-grades').textContent = uniqueGrades.size;
+            } else {
+                document.getElementById('stat-avg-age').textContent = '0';
+                document.getElementById('stat-grades').textContent = '0';
+            }
+        }
+
+        // Filter / Search
+        function filterStudents() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            if (!query) {
+                renderTable(allStudents);
+                return;
+            }
+            const filtered = allStudents.filter(s => 
+                String(s.id).includes(query) ||
+                s.name.toLowerCase().includes(query) ||
+                s.grade.toLowerCase().includes(query) ||
+                s.email.toLowerCase().includes(query) ||
+                String(s.age).includes(query)
+            );
+            renderTable(filtered);
+        }
+
+        // Add Student (INSERT)
+        async function handleAddStudent(e) {
+            e.preventDefault();
+            const name = document.getElementById('add-name').value.trim();
+            const age = document.getElementById('add-age').value;
+            const grade = document.getElementById('add-grade').value.trim();
+            const email = document.getElementById('add-email').value.trim();
+
+            try {
+                const res = await fetch('/api/students', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, age, grade, email })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Student '${name}' successfully added (ID: ${data.id})!`);
+                    document.getElementById('add-student-form').reset();
+                    fetchStudents();
+                } else {
+                    showToast(data.error || 'Failed to add student', true);
+                }
+            } catch (err) {
+                showToast('Failed to connect to server', true);
+            }
+        }
+
+        // Open Edit Modal (UPDATE)
+        function openEditModal(id) {
+            const student = allStudents.find(s => s.id === id);
+            if (!student) return;
+            document.getElementById('edit-id').value = student.id;
+            document.getElementById('edit-name').value = student.name;
+            document.getElementById('edit-age').value = student.age;
+            document.getElementById('edit-grade').value = student.grade;
+            document.getElementById('edit-email').value = student.email;
+
+            const modal = document.getElementById('edit-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('edit-modal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+
+        // Save Edit (UPDATE)
+        async function handleSaveEdit(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-id').value;
+            const name = document.getElementById('edit-name').value.trim();
+            const age = document.getElementById('edit-age').value;
+            const grade = document.getElementById('edit-grade').value.trim();
+            const email = document.getElementById('edit-email').value.trim();
+
+            try {
+                const res = await fetch(`/api/students/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, age, grade, email })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Student #${id} updated successfully!`);
+                    closeEditModal();
+                    fetchStudents();
+                } else {
+                    showToast(data.error || 'Failed to update student', true);
+                }
+            } catch (err) {
+                showToast('Error connecting to server', true);
+            }
+        }
+
+        // Delete Student (DELETE)
+        async function handleDelete(id, name) {
+            if (!confirm(`Are you sure you want to delete student #${id} (${name})?`)) return;
+
+            try {
+                const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast(`Student #${id} deleted from database!`);
+                    fetchStudents();
+                } else {
+                    showToast(data.error || 'Failed to delete student', true);
+                }
+            } catch (err) {
+                showToast('Error connecting to server', true);
+            }
+        }
+
+        // Preset query helper
+        function setQuery(query) {
+            document.getElementById('sql-query-input').value = query;
+        }
+
+        // Execute Raw SQL Query
+        async function handleExecuteSql() {
+            const query = document.getElementById('sql-query-input').value.trim();
+            const statusEl = document.getElementById('query-status');
+            if (!query) return;
+
+            statusEl.textContent = 'Running query...';
+            try {
+                const res = await fetch('/api/execute-sql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    statusEl.textContent = `Done (${data.message || 'Success'})`;
+                    showToast(`SQL Executed: ${data.message || 'Success'}`);
+                    if (data.rows) {
+                        renderTable(data.rows);
+                    } else {
+                        fetchStudents();
+                    }
+                } else {
+                    statusEl.textContent = 'Failed';
+                    showToast(data.error || 'SQL Error', true);
+                }
+            } catch (err) {
+                statusEl.textContent = 'Connection Error';
+                showToast('Error executing SQL', true);
+            }
+        }
+
+        // Escape HTML
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+            });
+        }
+
+        // Initial load
+        window.addEventListener('DOMContentLoaded', fetchStudents);
+    </script>
+</body>
+</html>
